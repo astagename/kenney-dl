@@ -116,11 +116,17 @@ def main():
             print(f"{cat:9} {slug}")
         return
 
+    # Track finished packs by slug in a manifest (zip names don't always
+    # match slugs, and substring matching gives false positives)
+    out.mkdir(parents=True, exist_ok=True)
+    manifest = out / ".kenney_dl_done"
+    done = set(manifest.read_text().split()) if manifest.exists() else set()
+
     ok = skipped = failed = 0
     for i, (cat, slug) in enumerate(plan, 1):
         folder = out / cat
         folder.mkdir(parents=True, exist_ok=True)
-        if any(folder.glob(f"*{slug}*.zip")):
+        if slug in done:
             skipped += 1
             continue
         try:
@@ -133,6 +139,9 @@ def main():
             print(f"[{i}/{len(plan)}] {cat}/{dest.name}")
             time.sleep(args.delay)
             download(url, dest)
+            with open(manifest, "a") as f:
+                f.write(slug + "\n")
+            done.add(slug)
             ok += 1
         except Exception as e:  # keep going on any single failure
             print(f"[{i}/{len(plan)}] {slug}: FAILED ({e})", file=sys.stderr)
